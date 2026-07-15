@@ -23,7 +23,6 @@ import org.apache.commons.math3.distribution.NormalDistribution;
 import org.apache.commons.math3.util.Pair;
 import org.apache.poi.openxml4j.util.ZipSecureFile;
 import simpaths.model.decisions.Grids;
-import simpaths.model.lifetime_incomes.EquivalisedIncomeCDF;
 import simpaths.model.taxes.DonorTaxUnit;
 import simpaths.model.taxes.MatchFeature;
 import simpaths.model.taxes.database.TaxDonorDataParser;
@@ -450,18 +449,14 @@ public class Parameters {
     private static int equivalisedIncomeMaxYear;
     private static int equivalisedIncomeMinYear;
     private static int equivalisedIncomeMaxAge;
-    private static MultiKeyCoefficientMap equivalisedIncomeCDFData;
-    private static MultiKeyCoefficientMap equivalisedIncomeCDFData2;
-    private static EquivalisedIncomeCDF equivalisedIncomeCDF;
-    private static EquivalisedIncomeCDF equivalisedIncomeCDF2;
-    private static MultiKeyCoefficientMap coeffCovarianceEquivalisedIncomeMales;
-    private static MultiKeyCoefficientMap coeffCovarianceEquivalisedIncomeFemales;
-    private static MultiKeyCoefficientMap coeffCovarianceEquivalisedIncomeDynamics;
-    private static MultiKeyCoefficientMap coeffCovarianceEquivalisedIncomeDynamics2;
-    private static LinearRegression regEquivalisedIncomeMales;
-    private static LinearRegression regEquivalisedIncomeFemales;
-    private static LinearRegression regEquivalisedIncomeDynamics;
-    private static LinearRegression regEquivalisedIncomeDynamics2;
+    private static MultiKeyCoefficientMap coeffCovarianceLI1a;
+    private static MultiKeyCoefficientMap coeffCovarianceLI1b;
+    private static MultiKeyCoefficientMap coeffCovarianceLI2a;
+    private static MultiKeyCoefficientMap coeffCovarianceLI2b;
+    private static LinearRegression regLifetimeIncomeLI1a;
+    private static LinearRegression regLifetimeIncomeLI1b;
+    private static LinearRegression regLifetimeIncomeLI2a;
+    private static LinearRegression regLifetimeIncomeLI2b;
 
     //Mortality, fertility, and unemployment tables for the intertemporal optimisation model
     private static MultiKeyCoefficientMap mortalityProbabilityByGenderAgeYear; //Load as MultiKeyCoefficientMap as all values are in the Excel file and just need to be accessible
@@ -978,17 +973,13 @@ public class Parameters {
         setMapBounds(MapBounds.Fertility, countryString);
 
         //Lifetime incomes
+        mapRealGDPperCapita = ExcelAssistant.loadCoefficientMap(Parameters.getInputDirectory() + "reg_lifetime_incomes.xlsx", "gdp_pc", 1, 1);
         equivalisedIncomeByGenderAgeYear = ExcelAssistant.loadCoefficientMap(Parameters.getInputDirectory() + "reg_lifetime_incomes.xlsx", "geometric_means", 2);
         setMapBounds(MapBounds.EquivalisedIncome, countryString);
-        equivalisedIncomeCDFData = ExcelAssistant.loadCoefficientMap(Parameters.getInputDirectory() + "reg_lifetime_incomes.xlsx", "LI2b", 1, 1);
-        equivalisedIncomeCDF = new EquivalisedIncomeCDF(equivalisedIncomeCDFData);
-        equivalisedIncomeCDFData2 = ExcelAssistant.loadCoefficientMap(Parameters.getInputDirectory() + "reg_lifetime_incomes.xlsx", "LI3b", 1);
-        equivalisedIncomeCDF2 = new EquivalisedIncomeCDF(equivalisedIncomeCDFData2);
-        mapRealGDPperCapita = ExcelAssistant.loadCoefficientMap(Parameters.getInputDirectory() + "reg_lifetime_incomes.xlsx", "gdp_pc", 1, 1);
-        coeffCovarianceEquivalisedIncomeMales = ExcelAssistant.loadCoefficientMap(Parameters.getInputDirectory() + "reg_lifetime_incomes.xlsx", "LI1a", 1);
-        coeffCovarianceEquivalisedIncomeFemales = ExcelAssistant.loadCoefficientMap(Parameters.getInputDirectory() + "reg_lifetime_incomes.xlsx", "LI1b", 1);
-        coeffCovarianceEquivalisedIncomeDynamics = ExcelAssistant.loadCoefficientMap(Parameters.getInputDirectory() + "reg_lifetime_incomes.xlsx", "LI2a", 1);
-        coeffCovarianceEquivalisedIncomeDynamics2 = ExcelAssistant.loadCoefficientMap(Parameters.getInputDirectory() + "reg_lifetime_incomes.xlsx", "LI3a", 1);
+        coeffCovarianceLI1a = ExcelAssistant.loadCoefficientMap(Parameters.getInputDirectory() + "reg_lifetime_incomes.xlsx", "LI1a", 1);
+        coeffCovarianceLI1b = ExcelAssistant.loadCoefficientMap(Parameters.getInputDirectory() + "reg_lifetime_incomes.xlsx", "LI1b", 1);
+        coeffCovarianceLI2a = ExcelAssistant.loadCoefficientMap(Parameters.getInputDirectory() + "reg_lifetime_incomes.xlsx", "LI2a", 1);
+        coeffCovarianceLI2b = ExcelAssistant.loadCoefficientMap(Parameters.getInputDirectory() + "reg_lifetime_incomes.xlsx", "LI2b", 1);
 
         //Unemployment rates
         unemploymentRatesMaleGraduatesByAgeYear = ExcelAssistant.loadCoefficientMap(Parameters.getInputDirectory() + "reg_unemployment.xlsx", "RatesMaleGraduates", 1);
@@ -1263,10 +1254,10 @@ public class Parameters {
                     {"coeffCovarianceSocialCareS3c", coeffCovarianceSocialCareS3c},
                     {"coeffCovarianceSocialCareS3d", coeffCovarianceSocialCareS3d},
                     // {"coeffCovarianceSocialCareS3e", coeffCovarianceSocialCareS3e}, // retired process
-                    {"coeffCovarianceEquivalisedIncomeMales", coeffCovarianceEquivalisedIncomeMales},
-                    {"coeffCovarianceEquivalisedIncomeFemales", coeffCovarianceEquivalisedIncomeFemales},
-                    {"coeffCovarianceEquivalisedIncomeDynamics", coeffCovarianceEquivalisedIncomeDynamics},
-                    {"coeffCovarianceEquivalisedIncomeDynamics2", coeffCovarianceEquivalisedIncomeDynamics2},
+                    {"coeffCovarianceLI1a", coeffCovarianceLI1a},
+                    {"coeffCovarianceLI1b", coeffCovarianceLI1b},
+                    {"coeffCovarianceLI2a", coeffCovarianceLI2a},
+                    {"coeffCovarianceLI2b", coeffCovarianceLI2b},
                     {"coeffCovarianceUnemploymentU1a", coeffCovarianceUnemploymentU1a},
                     {"coeffCovarianceUnemploymentU1b", coeffCovarianceUnemploymentU1b},
                     {"coeffCovarianceUnemploymentU1c", coeffCovarianceUnemploymentU1c},
@@ -1361,10 +1352,10 @@ public class Parameters {
             // coeffCovarianceSocialCareS3e = RegressionUtils.bootstrap(coeffCovarianceSocialCareS3e); // retired process
 
             //lifetime incomes
-            coeffCovarianceEquivalisedIncomeMales = bootstrapWithTrace("coeffCovarianceEquivalisedIncomeMales", coeffCovarianceEquivalisedIncomeMales);
-            coeffCovarianceEquivalisedIncomeFemales = bootstrapWithTrace("coeffCovarianceEquivalisedIncomeFemales", coeffCovarianceEquivalisedIncomeFemales);
-            coeffCovarianceEquivalisedIncomeDynamics = bootstrapWithTrace("coeffCovarianceEquivalisedIncomeDynamics", coeffCovarianceEquivalisedIncomeDynamics);
-            coeffCovarianceEquivalisedIncomeDynamics2 = bootstrapWithTrace("coeffCovarianceEquivalisedIncomeDynamics2", coeffCovarianceEquivalisedIncomeDynamics2);
+            coeffCovarianceLI1a = bootstrapWithTrace("coeffCovarianceEquivalisedIncomeMales", coeffCovarianceLI1a);
+            coeffCovarianceLI1b = bootstrapWithTrace("coeffCovarianceEquivalisedIncomeFemales", coeffCovarianceLI1b);
+            coeffCovarianceLI2a = bootstrapWithTrace("coeffCovarianceEquivalisedIncomeDynamics", coeffCovarianceLI2a);
+            coeffCovarianceLI2b = bootstrapWithTrace("coeffCovarianceEquivalisedIncomeDynamics2", coeffCovarianceLI2b);
 
             //Unemployment
             coeffCovarianceUnemploymentU1a = bootstrapWithTrace("coeffCovarianceUnemploymentU1a", coeffCovarianceUnemploymentU1a);
@@ -1447,10 +1438,10 @@ public class Parameters {
         // regCareHoursProvS3e = new LinearRegression(coeffCovarianceSocialCareS3e); // retired process
 
         //lifetime incomes
-        regEquivalisedIncomeMales = new LinearRegression(coeffCovarianceEquivalisedIncomeMales);
-        regEquivalisedIncomeFemales = new LinearRegression(coeffCovarianceEquivalisedIncomeFemales);
-        regEquivalisedIncomeDynamics = new LinearRegression(coeffCovarianceEquivalisedIncomeDynamics);
-        regEquivalisedIncomeDynamics2 = new LinearRegression(coeffCovarianceEquivalisedIncomeDynamics2);
+        regLifetimeIncomeLI1a = new LinearRegression(coeffCovarianceLI1a);
+        regLifetimeIncomeLI1b = new LinearRegression(coeffCovarianceLI1b);
+        regLifetimeIncomeLI2a = new LinearRegression(coeffCovarianceLI2a);
+        regLifetimeIncomeLI2b = new LinearRegression(coeffCovarianceLI2b);
 
         //Unemployment
         regUnemploymentMaleGraduateU1a = new BinomialRegression(RegressionType.Probit, ReversedIndicator.class, coeffCovarianceUnemploymentU1a);
@@ -1976,10 +1967,10 @@ public class Parameters {
     public static LinearRegression getRegCareHoursProvS3d() { return regCareHoursProvS3d; }
     // public static LinearRegression getRegCareHoursProvS3e() { return regCareHoursProvS3e; } // retired process
 
-    public static LinearRegression getRegEquivalisedIncomeMales() {return regEquivalisedIncomeMales;}
-    public static LinearRegression getRegEquivalisedIncomeFemales() {return regEquivalisedIncomeFemales;}
-    public static LinearRegression getRegEquivalisedIncomeDynamics() {return regEquivalisedIncomeDynamics;}
-    public static LinearRegression getRegEquivalisedIncomeDynamics2() {return regEquivalisedIncomeDynamics2;}
+    public static LinearRegression getRegLifetimeIncomeLI1a() {return regLifetimeIncomeLI1a;}
+    public static LinearRegression getRegLifetimeIncomeLI1b() {return regLifetimeIncomeLI1b;}
+    public static LinearRegression getRegLifetimeIncomeLI2a() {return regLifetimeIncomeLI2a;}
+    public static LinearRegression getRegLifetimeIncomeLI2b() {return regLifetimeIncomeLI2b;}
 
     public static BinomialRegression getRegUnemploymentMaleGraduateU1a() { return regUnemploymentMaleGraduateU1a; }
     public static BinomialRegression getRegUnemploymentMaleNonGraduateU1b() { return regUnemploymentMaleNonGraduateU1b; }
@@ -2206,14 +2197,6 @@ public class Parameters {
         mortalityProbability = prob.doubleValue() / 100000.0;
 
         return mortalityProbability;
-    }
-
-    public static double getEquivalisedIncomeDraw(double rnd) {
-        return equivalisedIncomeCDF.getValue(rnd);
-    }
-
-    public static double getEquivalisedIncomeDraw2(double rnd) {
-        return equivalisedIncomeCDF2.getValue(rnd);
     }
 
     public static Double getEquivalisedIncome(Gender demSex, int age, int year) {
@@ -3468,6 +3451,10 @@ public class Parameters {
         if (dd==null)
             return false;
         return !dd.isInfinite() && !dd.isNaN();
+    }
+
+    public static boolean checkFinite(Integer dd) {
+        return !(dd==null);
     }
 
     private static MultiKeyCoefficientMap bootstrapWithTrace(String mapName, MultiKeyCoefficientMap map) {

@@ -334,7 +334,7 @@ public class ManagerFileGrids {
     }
 
     /**
-     * METHOD TO CLEAR ANY EXISTING FILE
+     * METHOD TO CHECK THAT FILE EXISTS
      * @param file_path full path of file to delete if it exists
      * @return boolean true if file exists
      */

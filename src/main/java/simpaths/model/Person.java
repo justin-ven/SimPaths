@@ -22,8 +22,8 @@ import simpaths.model.annotations.UpdateManager;
 import simpaths.model.decisions.Axis;
 import simpaths.model.decisions.DecisionParams;
 import simpaths.model.enums.*;
-import simpaths.model.lifetime_incomes.AnnualIncome;
-import simpaths.model.lifetime_incomes.Individual;
+import simpaths.model.lifetime_incomes.AnnualIncomeLI;
+import simpaths.model.lifetime_incomes.IndividualLI;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -47,9 +47,7 @@ public class Person implements EventListener, IDoubleSource, IIntSource, Weight,
             @JoinColumn(name = "burun", referencedColumnName = "simulation_run"),
             @JoinColumn(name = "prid", referencedColumnName = "working_id")
     }) private BenefitUnit benefitUnit;
-    @ManyToOne(fetch = FetchType.EAGER, cascade = CascadeType.REFRESH)
-    @JoinColumn(name = "income_id", referencedColumnName = "id")
-    private Individual ltIncomeDonor;
+
 
     // identifiers
     private Long idPersOriginal;
@@ -65,6 +63,7 @@ public class Person implements EventListener, IDoubleSource, IIntSource, Weight,
     private Long idBu;
     @Enumerated(EnumType.STRING) private SampleEntry demEnterSample;
     @Enumerated(EnumType.STRING) private SampleExit demExitSample = SampleExit.NotYet;  //entry to sample via international immigration
+    @Transient private IndividualLI lifetimeIncomeDonor;
 
     // person level variables
     private Integer demAge; //Age
@@ -331,8 +330,8 @@ public class Person implements EventListener, IDoubleSource, IIntSource, Weight,
 
         this.demEnterSample = demEnterSample;
 
-        if (originalPerson.ltIncomeDonor!=null) {
-            this.ltIncomeDonor = originalPerson.ltIncomeDonor;
+        if (originalPerson.lifetimeIncomeDonor !=null) {
+            this.lifetimeIncomeDonor = originalPerson.lifetimeIncomeDonor;
         }
         if (Parameters.lifetimeIncomeImpute)
             this.yLifeTime = originalPerson.getYLifeTime();
@@ -7881,20 +7880,21 @@ public class Person implements EventListener, IDoubleSource, IIntSource, Weight,
         return healthPhysicalPcsL1;
     }
 
-    public void setLtIncomeDonor(Individual individual) {
-        ltIncomeDonor = individual;
+    public void setLifetimeIncomeDonor(IndividualLI individual) {
+        lifetimeIncomeDonor = individual;
     }
 
     public void setLtIncome(int maxAge) {
+
         yLifeTime = 0.0;
         if (demAge > 0) {
 
-            int birthYear = ltIncomeDonor.getBirthYear();
+            int birthYear = lifetimeIncomeDonor.getBirthYear();
             int ageLimit = Math.min(maxAge, demAge -1);
             for (int aa=0; aa<=ageLimit; aa++) {
-                AnnualIncome annualIncome = ltIncomeDonor.getAnnualIncome(birthYear+aa);
+                AnnualIncomeLI annualIncome = lifetimeIncomeDonor.getAnnualIncome(birthYear+aa);
                 if (annualIncome == null)
-                    throw new RuntimeException("Annual income for year " + (birthYear+aa) + " not found for donor " + ltIncomeDonor.getId());
+                    throw new RuntimeException("Annual income for year " + (birthYear+aa) + " not found for donor " + lifetimeIncomeDonor.getId());
                 yLifeTime += annualIncome.getValue();
             }
             yLifeTime /= (double)(ageLimit+1);
@@ -7922,7 +7922,7 @@ public class Person implements EventListener, IDoubleSource, IIntSource, Weight,
         }
     }
 
-    public Individual getLtIncomeDonor() {return ltIncomeDonor;}
+    public IndividualLI getLifetimeIncomeDonor() {return lifetimeIncomeDonor;}
 
     public Integer getLiwwh() {
         return labEmpNyear;
