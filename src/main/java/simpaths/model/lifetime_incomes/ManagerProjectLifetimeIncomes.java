@@ -1,15 +1,15 @@
 package simpaths.model.lifetime_incomes;
 
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.EntityTransaction;
 import jakarta.persistence.Persistence;
-import microsim.data.db.Experiment;
 import org.apache.log4j.Logger;
+import simpaths.data.CSV.CsvToObjectLoader;
 import simpaths.data.Parameters;
 import simpaths.model.enums.Gender;
 
 import java.io.File;
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -33,6 +33,30 @@ public class ManagerProjectLifetimeIncomes {
         // start projecting lifetime incomes
         initialiseLifetimeIncomeDatabase();
         RandomGenerator generator = new Random(seed);
+
+        // load initialisation values
+        String path = Parameters.getInputDirectory() + "lifetime_incomes" + File.separator + "initialisation_observations.csv";
+        LinkedHashSet<InitialisationObservation> initialisationObservations;
+        try {
+            initialisationObservations = CsvToObjectLoader.load(path, InitialisationObservation.class);
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (Throwable e) {
+            e.printStackTrace();
+            throw e;
+        }
+
+        // load white noise estimates
+        path = Parameters.getInputDirectory() + "lifetime_incomes" + File.separator + "whitenoise_estimates.csv";
+        LinkedHashSet<WhiteNoiseEstimate> whiteNoiseEstimates;
+        try {
+            whiteNoiseEstimates = CsvToObjectLoader.load(path, WhiteNoiseEstimate.class);
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (Throwable e) {
+            e.printStackTrace();
+            throw e;
+        }
 
         for (int by = startBirthYear; by <= endBirthYear; by++) {
             // loop over years

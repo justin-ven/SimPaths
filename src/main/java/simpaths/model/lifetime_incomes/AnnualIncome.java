@@ -78,7 +78,7 @@ public class AnnualIncome implements IDoubleSource {
 
             z_m1 = Math.log(income_m1 / gmIncome_m1);
 
-            double z_score = Parameters.getRegEquivalisedIncomeDynamics2().getScore(this, AnnualIncome.DoublesVariables.class);
+            double z_score = Parameters.getRegLifetimeIncome2b().getScore(this, AnnualIncome.DoublesVariables.class);
             innov = Parameters.getEquivalisedIncomeDraw2(rnd);
             val = Math.exp(z_score+innov) * gmIncome;
         }
@@ -98,7 +98,7 @@ public class AnnualIncome implements IDoubleSource {
             z_m1 = Math.log(income_m1 / gmIncome_m1);
             z_m2 = Math.log(income_m2 / gmIncome_m2);
 
-            double z_score = Parameters.getRegEquivalisedIncomeDynamics().getScore(this, AnnualIncome.DoublesVariables.class);
+            double z_score = Parameters.getRegLifetimeIncome2a().getScore(this, AnnualIncome.DoublesVariables.class);
             innov = Parameters.getEquivalisedIncomeDraw(rnd);
             val = Math.exp(z_score+innov) * gmIncome;
         }
@@ -115,10 +115,10 @@ public class AnnualIncome implements IDoubleSource {
             // outside observed range, use regression model
 
             if (Gender.Male.equals(gender)) {
-                val = Math.exp(Parameters.getRegEquivalisedIncomeMales().getScore(individual, Individual.DoublesVariables.class));
+                val = Math.exp(Parameters.getRegLifetimeIncome1a().getScore(individual, Individual.DoublesVariables.class));
             }
             else {
-                val = Math.exp(Parameters.getRegEquivalisedIncomeFemales().getScore(individual, Individual.DoublesVariables.class));
+                val = Math.exp(Parameters.getRegLifetimeIncome1b().getScore(individual, Individual.DoublesVariables.class));
             }
         }
         return val;
