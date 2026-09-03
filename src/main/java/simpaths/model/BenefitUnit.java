@@ -122,6 +122,7 @@ public class BenefitUnit implements EventListener, IDoubleSource, Weight, Compar
     @NullInitialised @Transient private Integer i_labHrsWork2Week;
     @NullInitialised @Transient private Integer i_wealthFinancialDecile;
     @NullInitialised @Transient private Integer i_yPrivateDecile;
+    @NullInitialised @Transient private Integer i_yWealthPrivateIncomeQuintile;
 
     // ================= At Risk of Work cache to avoid unnecessary atRiskOfWork() calls =================
     @NullInitialised @Transient private Boolean cachedMaleAtRiskOfWork = null;
@@ -333,52 +334,16 @@ public class BenefitUnit implements EventListener, IDoubleSource, Weight, Compar
     }
 
 
-    /******************************************************************
-     * method to generate additional benefit unit level characteristics
-     * for initialisation population
-     ******************************************************************/
-    public void setAdditionalFieldsInInitialPopulation() {
-
-        wealthNonPension = new WealthNonPension(
-                Objects.requireNonNullElse(wealthTotValue, 0.0),
-                Objects.requireNonNullElse(wealthPrptyValue, 0.0),
-                Objects.requireNonNullElse(wealthMortgageDebtValue, 0.0),
-                Objects.requireNonNullElse(wealthPensValue, 0.0),
-                Objects.requireNonNullElse(wealthUnsecuredDebtLowValue, 0.0),
-                Objects.requireNonNullElse(wealthUnsecuredDebtHighValue, 0.0));
+    /**
+     * Attaches wealth state prepared by the population-initialisation module.
+     * Regression scoring and residual-state construction deliberately live in
+     * the wealth component rather than in this entity.
+     */
+    public void setWealthNonPensionForPopulationInitialization(WealthNonPension wealthNonPension) {
+        this.wealthNonPension = Objects.requireNonNull(wealthNonPension);
         wealthUnsecuredDebtLowValue = wealthNonPension.getWealthFinancial().getWealthUnsecuredDebtLowValue();
         wealthUnsecuredDebtHighValue = wealthNonPension.getWealthFinancial().getWealthUnsecuredDebtHighValue();
         wealthPrptyFlag = (Objects.requireNonNullElse(wealthPrptyValue, 0.0) > 0.0);
-        if (Parameters.projectNonPensionWealth) {
-            initializeWealthResidualStates();
-        }
-    }
-
-    private void initializeWealthResidualStates() {
-        IDoubleSource zeroPersistenceSource = variableID -> {
-            if (Variables.HousingPersistence.equals(variableID) ||
-                    Variables.MortgagePersistence.equals(variableID) ||
-                    Variables.HighCostDebtPersistence.equals(variableID)) {
-                return 0.0;
-            }
-            return getDoubleValue(variableID);
-        };
-
-        if (wealthNonPension.getWealthHousing().isHomeOwner()) {
-            double score = Parameters.getRegHW1c().getScore(zeroPersistenceSource, Variables.class);
-            double residual = Parameters.asinh(wealthNonPension.getWealthHousing().getWealthNetHousing()) - score;
-            wealthNonPension.getWealthHousing().setWealthNetInnovation(residual);
-        }
-        if (wealthNonPension.getWealthHousing().isMortgageHolder()) {
-            double score = Parameters.getRegHW2c().getScore(zeroPersistenceSource, Variables.class);
-            double residual = Math.log(wealthNonPension.getWealthMortgageDebtValue()) - score;
-            wealthNonPension.getWealthHousing().setWealthMortgageDebtInnovation(residual);
-        }
-        if (wealthNonPension.getWealthFinancial().hasHighCostDebt()) {
-            double score = Parameters.getRegFW2c().getScore(zeroPersistenceSource, Variables.class);
-            double residual = Parameters.asinh(wealthNonPension.getWealthFinancial().getWealthUnsecuredDebtHighValue()) - score;
-            wealthNonPension.getWealthFinancial().setWealthUnsecuredDebtHighInnovation(residual);
-        }
     }
 
 
@@ -526,7 +491,7 @@ public class BenefitUnit implements EventListener, IDoubleSource, Weight, Compar
 
     public void updateHousingWealth() {
 
-        wealthNonPension.projectHousingWealth(this, wealthNonPensionL1,
+        model.getWealthModule().projectHousingValues(this, wealthNonPension, wealthNonPensionL1,
                 statInnovations.getDoubleDraw(7), statInnovations.getDoubleDraw(9),
                 statInnovations.getDoubleDraw(10), statInnovations.getDoubleDraw(11));
         wealthPrptyValue = wealthNonPension.getWealthPrptyValue();
@@ -2616,6 +2581,10 @@ public class BenefitUnit implements EventListener, IDoubleSource, Weight, Compar
         PrivateIncomeQuintile3,
         PrivateIncomeQuintile4,
         PrivateIncomeQuintile5,
+        WealthPrivateIncomeQuintile2,
+        WealthPrivateIncomeQuintile3,
+        WealthPrivateIncomeQuintile4,
+        WealthPrivateIncomeQuintile5,
         PrivatePensionIncome,
         ReferencePersonEmployed,
         ReferencePersonGraduate,
@@ -4335,6 +4304,12 @@ public class BenefitUnit implements EventListener, IDoubleSource, Weight, Compar
                 int currentQuintile = (getPrivateIncomeDecile() + 1) / 2;
                 return currentQuintile == requestedQuintile ? 1.0 : 0.0;
             }
+            case WealthPrivateIncomeQuintile2, WealthPrivateIncomeQuintile3,
+                    WealthPrivateIncomeQuintile4, WealthPrivateIncomeQuintile5 -> {
+                int requestedQuintile = variableID.ordinal()
+                        - Variables.WealthPrivateIncomeQuintile2.ordinal() + 2;
+                return getWealthPrivateIncomeQuintile() == requestedQuintile ? 1.0 : 0.0;
+            }
             case ReferencePersonEmployed -> {
                 return Les_c4.EmployedOrSelfEmployed.equals(getRefPerson().getLabC4()) ? 1.0 : 0.0;
             }
@@ -4701,6 +4676,20 @@ public class BenefitUnit implements EventListener, IDoubleSource, Weight, Compar
 
     public void setWealthPrptyValue(Double wealthPrptyValue) {
         this.wealthPrptyValue = wealthPrptyValue;
+    }
+
+    public double getWealthMortgageDebtValue() {
+        return getWealthMortgageDebtValue(true);
+    }
+
+    public double getWealthMortgageDebtValue(boolean throwError) {
+        if (!Parameters.isFinite(wealthMortgageDebtValue)) {
+            if (throwError)
+                throw new RuntimeException("Call to get benefit unit mortgage debt before it is initialised.");
+            else
+                return 0.0;
+        }
+        return wealthMortgageDebtValue;
     }
 
     public double getWealthUnsecuredDebtLowValue() {
@@ -5805,6 +5794,12 @@ public class BenefitUnit implements EventListener, IDoubleSource, Weight, Compar
         i_yPrivateDecile = decile;
     }
 
+    public void setWealthPrivateIncomeQuintile(int quintile) {
+        if (quintile < 1 || quintile > 5)
+            throw new IllegalArgumentException("Wealth private-income quintile must be in [1, 5]");
+        i_yWealthPrivateIncomeQuintile = quintile;
+    }
+
     public int getNetFinancialWealthDecile() {
         if (i_wealthFinancialDecile == null)
             throw new IllegalStateException("Current financial-wealth decile has not been assigned");
@@ -5815,6 +5810,12 @@ public class BenefitUnit implements EventListener, IDoubleSource, Weight, Compar
         if (i_yPrivateDecile == null)
             throw new IllegalStateException("Current private-income decile has not been assigned");
         return i_yPrivateDecile;
+    }
+
+    public int getWealthPrivateIncomeQuintile() {
+        if (i_yWealthPrivateIncomeQuintile == null)
+            throw new IllegalStateException("Current wealth private-income quintile has not been assigned");
+        return i_yWealthPrivateIncomeQuintile;
     }
 
     public SimPathsCollector getCollector() { return collector; }

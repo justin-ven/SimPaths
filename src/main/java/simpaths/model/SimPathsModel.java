@@ -33,6 +33,7 @@ import org.jetbrains.annotations.NotNull;
 import simpaths.data.*;
 import simpaths.data.startingpop.Processed;
 import simpaths.experiment.SimPathsCollector;
+import simpaths.model.benefitunit.WealthModule;
 import simpaths.model.decisions.DecisionParams;
 import simpaths.model.decisions.ManagerPopulateGrids;
 import simpaths.model.enums.*;
@@ -157,6 +158,7 @@ public class SimPathsModel extends AbstractSimulationManager implements EventLis
     private boolean useWeights = false;
 
     private boolean ignoreTargetsAtPopulationLoad = false;
+    private final WealthModule wealthModule = new WealthModule();
 
     @GUIparameter(description = "If unchecked, will use the standard matching method")
 //	private boolean useSBAMMatching = false;
@@ -601,6 +603,7 @@ public class SimPathsModel extends AbstractSimulationManager implements EventLis
         if (Parameters.projectNonPensionWealth) {
 
             yearlySchedule.addCollectionEvent(benefitUnits, BenefitUnit.Processes.UpdateNonPensionWealth);
+            yearlySchedule.addEvent(this, Processes.AssignMortgageIncomeQuintiles);
             yearlySchedule.addCollectionEvent(benefitUnits, BenefitUnit.Processes.UpdateHousingWealth);
             yearlySchedule.addEvent(this, Processes.AssignFinancialWealthRanks);
             yearlySchedule.addCollectionEvent(benefitUnits, BenefitUnit.Processes.UpdateUnsecuredDebt);
@@ -750,6 +753,7 @@ public class SimPathsModel extends AbstractSimulationManager implements EventLis
             pw.println(line);
             line = "useWeights: " + useWeights;
             pw.println(line);
+            wealthModule.writeRunParameters(pw);
             line = "projectMortality: " + projectMortality;
             pw.println(line);
             line = "alignPopulation: " + alignPopulation;
@@ -821,6 +825,7 @@ public class SimPathsModel extends AbstractSimulationManager implements EventLis
         EndYear,
         UnionMatching,
         LabourMarketUpdate,
+        AssignMortgageIncomeQuintiles,
         AssignFinancialWealthRanks,
 
         //Alignment Processes
@@ -861,6 +866,9 @@ public class SimPathsModel extends AbstractSimulationManager implements EventLis
             }
             case AssignFinancialWealthRanks -> {
                 assignFinancialWealthRanks();
+            }
+            case AssignMortgageIncomeQuintiles -> {
+                wealthModule.assignMortgageIncomeQuintiles(benefitUnits);
             }
             case PopulationAlignment -> {
 
@@ -2708,6 +2716,7 @@ public class SimPathsModel extends AbstractSimulationManager implements EventLis
                 for (BenefitUnit benefitUnit : originalHousehold.getBenefitUnits()) {
                     if (benefitUnit.getId() > benefitUnitIdCounter)
                         benefitUnitIdCounter = benefitUnit.getId();
+                    wealthModule.prepareBenefitUnit(benefitUnit);
                     for (Person person : benefitUnit.getMembers()) {
                         if (person.getId() > personIdCounter)
                             personIdCounter = person.getId();
@@ -2753,7 +2762,7 @@ public class SimPathsModel extends AbstractSimulationManager implements EventLis
                     double hhweight = household.getWeight();
                     boolean hasChild = false;
                     for (BenefitUnit benefitUnit : household.getBenefitUnits()) {
-                        benefitUnit.setAdditionalFieldsInInitialPopulation();
+                        wealthModule.prepareBenefitUnit(benefitUnit);
                         for (Person person : benefitUnit.getMembers()) {
                             person.setAdditionalFieldsInInitialPopulation();
                             if (person.getDemAge()<Parameters.AGE_TO_BECOME_RESPONSIBLE)
@@ -2845,15 +2854,22 @@ public class SimPathsModel extends AbstractSimulationManager implements EventLis
                 }
             }
 
-            // save to processed repository
-
-            if (PersistPopulation) {
-                System.out.println("Saving compiled input data for future reference");
-                persistProcessed();
-            }
-
             stopwatch.stop();
             System.out.println("Time elapsed " + stopwatch.getTime()/1000 + " seconds");
+        }
+
+        if (Parameters.projectNonPensionWealth) {
+            // HW2c residual reconstruction uses the same common income ranks
+            // that are assigned immediately before housing projection later.
+            wealthModule.assignMortgageIncomeQuintiles(benefitUnits);
+        }
+        wealthModule.initializePopulation(benefitUnits);
+
+        // Save only newly compiled input data. The wealth module deliberately
+        // reconstructs its transient state whenever population data load.
+        if (processed == null && PersistPopulation) {
+            System.out.println("Saving compiled input data for future reference");
+            persistProcessed();
         }
 
         // finalise
@@ -3265,6 +3281,10 @@ public class SimPathsModel extends AbstractSimulationManager implements EventLis
 
     public void setUseWeights(boolean useWeights) {
         this.useWeights = useWeights;
+    }
+
+    public WealthModule getWealthModule() {
+        return wealthModule;
     }
 
 
