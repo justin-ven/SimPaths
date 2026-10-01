@@ -271,11 +271,11 @@ public class SimPathsModel extends AbstractSimulationManager implements EventLis
     @GUIparameter(description = "tick to enable intertemporal optimised consumption and labour decisions")
     private boolean enableIntertemporalOptimisations = false;
 
-    private boolean lifetimeIncomeGenerate = false;    // request to generate new set of lifetime incomes
+    private boolean lifetimeIncomeGenerate = true;      // request to generate new set of lifetime incomes
     private Integer lifetimeIncomeStartBirthYear = 1934;
     private Integer lifetimeIncomeEndBirthYear = 2019;
     private Integer lifetimeIncomeEndAge = 80;
-    private Integer lifetimeIncomeCohortSize = 100000;
+    private Integer lifetimeIncomeCohortSize = 300000;
     private boolean lifetimeIncomeWriteToCSV = false;
     private long lifetimeIncomeRandomSeed = 505;
     private double lifetimeIncomeAge0StdDev = 0.9;
