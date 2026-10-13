@@ -3,8 +3,6 @@ package simpaths.model;
 
 // import Java packages
 
-import com.opencsv.exceptions.CsvDataTypeMismatchException;
-import com.opencsv.exceptions.CsvRequiredFieldEmptyException;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.EntityTransaction;
@@ -39,9 +37,8 @@ import simpaths.model.benefitunit.WealthModule;
 import simpaths.model.decisions.DecisionParams;
 import simpaths.model.decisions.ManagerPopulateGrids;
 import simpaths.model.enums.*;
-import simpaths.model.lifetime_incomes.BirthCohort;
-import simpaths.model.lifetime_incomes.LifetimeIncomeImputation;
-import simpaths.model.lifetime_incomes.ManagerProjectLifetimeIncomes;
+import simpaths.model.lifetime_incomes.ManagerLifetimeIncomes;
+import simpaths.model.lifetime_incomes.TemplateIndividual;
 import simpaths.model.taxes.*;
 import simpaths.model.taxes.database.DatabaseExtension;
 import simpaths.model.taxes.database.TaxDonorDataParser;
@@ -271,15 +268,12 @@ public class SimPathsModel extends AbstractSimulationManager implements EventLis
     @GUIparameter(description = "tick to enable intertemporal optimised consumption and labour decisions")
     private boolean enableIntertemporalOptimisations = false;
 
-    private boolean lifetimeIncomeGenerate = true;      // request to generate new set of lifetime incomes
-    private Integer lifetimeIncomeStartBirthYear = 1934;
-    private Integer lifetimeIncomeEndBirthYear = 2019;
+    private boolean lifetimeIncomeImpute = true;      // request to generate new set of lifetime incomes
     private Integer lifetimeIncomeEndAge = 80;
-    private Integer lifetimeIncomeCohortSize = 300000;
-    private boolean lifetimeIncomeWriteToCSV = false;
+    private Integer lifetimeIncomeCohortSize = 500000;
+    private boolean lifetimeIncomeWriteToCSV = true;
     private long lifetimeIncomeRandomSeed = 505;
-    private double lifetimeIncomeAge0StdDev = 0.9;
-    private boolean lifetimeIncomeImpute = false;       // request to impute lifetime income data for population at load
+    List<TemplateIndividual> lifetimeIncomeTemplates = new ArrayList<>();
 
     @GUIparameter(description = "tick to use behavioural solutions saved by a previous simulation")
     private boolean useSavedBehaviour = false;
@@ -390,10 +384,9 @@ public class SimPathsModel extends AbstractSimulationManager implements EventLis
                 projectSocialCare, donorPoolAveraging, taxDonorUpratingByWage, fixTimeTrend, flagDefaultToTimeSeriesAverages,
                 saveImperfectTaxDBMatches, timeTrendStopsIn, startYear, endYear, interestRateInnov,
                 disposableIncomeFromLabourInnov, flagSuppressChildcareCosts, flagSuppressSocialCareCosts, lifetimeIncomeImpute);
-        if (lifetimeIncomeGenerate) {
-            ManagerProjectLifetimeIncomes.run(log, lifetimeIncomeStartBirthYear,
-                    lifetimeIncomeEndBirthYear, lifetimeIncomeEndAge, lifetimeIncomeCohortSize, lifetimeIncomeWriteToCSV,
-                    lifetimeIncomeRandomSeed, lifetimeIncomeAge0StdDev, outputPath);
+        if (lifetimeIncomeImpute) {
+            ManagerLifetimeIncomes.generateNormalisedProfiles(log, lifetimeIncomeEndAge, lifetimeIncomeCohortSize, lifetimeIncomeTemplates,
+                    lifetimeIncomeWriteToCSV, lifetimeIncomeRandomSeed, outputPath);
         }
         if (enableIntertemporalOptimisations) {
 
@@ -2618,17 +2611,12 @@ public class SimPathsModel extends AbstractSimulationManager implements EventLis
 
         //TODO: Slight differences between otherwise identical simulations arise when loading "processed" vs "unprocessed" data (distinguished by the if statement below)
         Processed processed = PersistPopulation ? getProcessed() : null;
-        LifetimeIncomeImputation lifetimeIncomes = lifetimeIncomeImpute ? getLifetimeIncomes(startYear) : null;
         if (processed!=null) {
 
             List<Household> households = new ArrayList<>(processed.getHouseholds());
             if (households.isEmpty())
                 throw new RuntimeException("No households in processed set");
             System.out.println("Found processed dataset - preparing for simulation");
-
-            // check if need to add income histories
-            if (lifetimeIncomes!=null)
-                lifetimeIncomes.matchDonorProfiles(households);
 
             // update counters and augment attributes
             long householdIdCounter = 1L, benefitUnitIdCounter = 1L, personIdCounter = 1L;
@@ -2665,9 +2653,6 @@ public class SimPathsModel extends AbstractSimulationManager implements EventLis
             System.out.println("completed loading survey data for starting population");
             log.info("completed loading survey data for starting population");
 
-            // check if need to add income histories
-            if (lifetimeIncomes!=null)
-                lifetimeIncomes.matchDonorProfiles(inputHouseholdList);
             if (!useWeights) {
                 // Expand population, sample, and remove weights
 
@@ -2778,6 +2763,12 @@ public class SimPathsModel extends AbstractSimulationManager implements EventLis
 
             stopwatch.stop();
             System.out.println("Time elapsed " + stopwatch.getTime()/1000 + " seconds");
+        }
+
+        if (lifetimeIncomeImpute) {
+
+            String outputPath = "./output/" + getEngine().getCurrentExperiment().runId;
+            ManagerLifetimeIncomes.imputeProfiles(log, persons, lifetimeIncomeTemplates, lifetimeIncomeWriteToCSV, outputPath);
         }
 
         if (Parameters.projectNonPensionWealth) {
@@ -3588,42 +3579,6 @@ public class SimPathsModel extends AbstractSimulationManager implements EventLis
                 }
             }
         }
-    }
-
-    private LifetimeIncomeImputation getLifetimeIncomes(int year) {
-
-        System.out.println("Loading simulated income histories");
-        LifetimeIncomeImputation lifetimeIncomes = null;
-        EntityTransaction txn = null;
-        try {
-
-            // query database
-            String fileName = Parameters.getInputDirectory() + "input";
-            var propertyMap = new HashMap<String, String>();
-            propertyMap.put("hibernate.connection.url", "jdbc:h2:file:" + fileName + ";TRACE_LEVEL_FILE=0;TRACE_LEVEL_SYSTEM_OUT=0;AUTO_SERVER=TRUE");
-            EntityManager em = Persistence.createEntityManagerFactory("lifetime-incomes", propertyMap).createEntityManager();
-            txn = em.getTransaction();
-            txn.begin();
-            String query = "SELECT DISTINCT cohort FROM BirthCohort cohort";
-//            String query = "SELECT DISTINCT cohort FROM BirthCohort cohort LEFT JOIN FETCH cohort.individuals individuals LEFT JOIN FETCH individuals.incomes incomes";
-            System.out.println("Submitting SQL query");
-            log.info("Submitting SQL query: " + query);
-            List<BirthCohort> cohorts = em.createQuery(query).getResultList();
-            lifetimeIncomes = new LifetimeIncomeImputation(year, cohorts);
-
-            // close database connection
-            log.info("Query complete");
-            System.out.println("Query complete");
-            em.close();
-        } catch (Exception e) {
-            if (txn != null) {
-                txn.rollback();
-            }
-            e.printStackTrace();
-            throw new RuntimeException("Problem sourcing data for starting population");
-        }
-
-        return lifetimeIncomes;
     }
 
     private Processed getProcessed() {

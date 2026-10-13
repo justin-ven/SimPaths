@@ -119,6 +119,8 @@ set seed `seed'
 gen ee = rnormal()
 gen ee2 = runiform()
 
+gen pensioner = (ypnoab > 0.01)
+
 gen was = 0
 
 gen long bu = idbenefitunit
@@ -192,6 +194,7 @@ use "ukhls_wealthtemp.dta", clear
 gen treat = (single_woman + single_man + couple_ref)
 gsort bu -treat
 by bu: egen chk = sum(treat)
+by bu: egen pensioners = sum(pensioner)
 tab chk
 drop chk
 replace treat = 0 if (bu==bu[_n-1])

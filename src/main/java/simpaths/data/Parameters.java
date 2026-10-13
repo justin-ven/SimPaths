@@ -23,7 +23,6 @@ import org.apache.commons.math3.distribution.NormalDistribution;
 import org.apache.commons.math3.util.Pair;
 import org.apache.poi.openxml4j.util.ZipSecureFile;
 import simpaths.model.decisions.Grids;
-import simpaths.model.lifetime_incomes.EquivalisedIncomeCDF;
 import simpaths.model.taxes.DonorTaxUnit;
 import simpaths.model.taxes.MatchFeature;
 import simpaths.model.taxes.database.TaxDonorDataParser;
