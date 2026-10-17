@@ -7,7 +7,7 @@
 * DATA:         	    UKHLS EUL version - UKDA-6614-stata [to wave o]
 *                       WAS EUL version - UKDA-7215-stata [to wave 7]
 * AUTHORS: 				Liang Shi (LS), Justin van de Ven (JV), Daria Popova (DP)
-* LAST UPDATE:          22/07/2026 (JV)
+* LAST UPDATE:          14/10/2026 (JV)
 * NOTE:					Called from 00_master.do - see master file for further details
 *
 *	File currently compiles data to merge from 2016
@@ -265,7 +265,7 @@ foreach file in "${dir_was_data}/was_round_5_person_eul_oct_2020.dta" ///
 		recode dvgiemp dvgise dvgippen dvgiinv dvoigrrannual_i dvoiggtannual_i dvoigegannual_i dvoigfrannual_i dvoigmaannual_i dvoigroannual_i dvoigopannual_i (missing=0)
 		gen inci = dvgiemp + dvgise + dvgippen + dvgiinv + dvoigrrannual_i + dvoiggtannual_i + dvoigegannual_i + dvoigfrannual_i + dvoigmaannual_i + dvoigroannual_i + dvoigopannual_i
 		gen pensioner = (dvgippen > 0.01)
-		
+
 		// fix some partner person numbers
 		duplicates tag case partno, gen(dup)	// Rows should be unique in case partno, assuming monogamy
 		replace dup=0 if partno==17				// partno=17 if no partner in household
