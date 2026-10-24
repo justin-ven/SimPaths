@@ -9,17 +9,26 @@ import simpaths.data.Parameters;
 import java.io.*;
 import java.util.*;
 import java.util.random.RandomGenerator;
-import java.util.stream.IntStream;
 import org.apache.logging.log4j.Logger;
 import simpaths.model.Person;
+import simpaths.model.enums.Gender;
 
 public class ManagerLifetimeIncomes {
 
 
-    public static void generateNormalisedProfiles(Logger log, Integer endAge, Integer simCohortSize, List<TemplateIndividual> templateIndividuals, boolean writeToCSV, long seed, String outputDir) {
+    public static void generateNormalisedProfiles(Logger log, Integer capAge, Integer endAge, Integer simCohortSize, List<TemplateIndividual> templateIndividuals, boolean writeToCSV, long seed, String outputDir) {
 
         log.info("Initialising lifetime income projections");
         System.out.println("Initialising lifetime income projections");
+
+
+        /*
+        SampleIndividual ind = new SampleIndividual();
+        ind.setGender(Gender.Male);
+        double income = ind.getGMEquivalisedIncome(80, 2043);
+        income = ind.getGMEquivalisedIncome(85, 2050);
+        */
+
 
         // start projecting lifetime incomes
         RandomGenerator generator = new Random(seed);
@@ -61,27 +70,28 @@ public class ManagerLifetimeIncomes {
             templateIndividuals.add(individual);
         }
 
-        // project lifetimes for template donors
+        // project lifetimes for template donors (normalised incomes)
         for (int age = 1; age <= endAge; age++) {
 
-            final int currentAge = age;
-            List<WhiteNoiseEstimate> whiteNoiseEstimates = whiteNoiseEstimatesAll.stream().filter(w -> w.getAge() == currentAge).toList();
+            final int currentCapAge = Math.min(age, capAge);
+            final int currentUncapAge = age;
+            List<WhiteNoiseEstimate> whiteNoiseEstimates = whiteNoiseEstimatesAll.stream().filter(w -> w.getAge() == currentCapAge).toList();
             int noiseSampleSize = whiteNoiseEstimates.size();
-            double adjFactor = AdjustmentFactors.getWhiteNoise(currentAge);
+            double adjFactor = AdjustmentFactors.getWhiteNoise(currentCapAge);
 
             templateIndividuals.parallelStream().forEach(individual -> {
             //for (TemplateIndividual individual : templateIndividuals) {
 
                 WhiteNoiseEstimate noise = whiteNoiseEstimates.get(individual.getNextInt(noiseSampleSize));
                 double etaAdj = noise.getEtaHat() * adjFactor;
-                individual.projectNormIncome(currentAge, etaAdj);
+                individual.projectNormIncome(currentUncapAge, etaAdj);
             //}
             });
         }
 
         // write template profiles to csv
-        boolean writeToCSV2 = true;
-        if (writeToCSV) {
+        boolean writeToCSV2 = false;
+        if (writeToCSV2) {
 
             List<NormalisedIncome> incomes = new ArrayList<>();
             for (TemplateIndividual individual : templateIndividuals) {
@@ -145,6 +155,92 @@ public class ManagerLifetimeIncomes {
                 for (int age = 0; age <= endAge; age++) {
 
                     ImputedIncome income = new ImputedIncome(person, age);
+                    incomes.add(income);
+                }
+            }
+            try {
+                String path = outputDir + File.separator + "imputed_incomes.csv";
+                Writer writer = new FileWriter(path);
+                StatefulBeanToCsv beanToCsv = new StatefulBeanToCsvBuilder(writer).build();
+                beanToCsv.write(incomes);
+                writer.close();
+            } catch (CsvRequiredFieldEmptyException | CsvDataTypeMismatchException e) {
+                // a bean had an empty required field or a value that couldn't be converted
+                System.err.println("Could not write CSV: " + e.getMessage());
+            } catch (IOException e) {
+                e.printStackTrace();
+                throw new RuntimeException("Problem writing imputed incomes");
+            } catch (Throwable e) {
+                e.printStackTrace();
+                throw e;
+            }
+        }
+
+        // finalise
+        log.info("Completed imputing lifetime incomes");
+    }
+
+    public static void imputeProfiles2(Logger log, Integer capAge, long seed, List<TemplateIndividual> templateIndividuals, boolean writeToCSV, String outputDir) {
+
+        log.info("Imputing lifetime income profiles for sample");
+        System.out.println("Imputing lifetime income profiles for sample");
+
+        // define year
+        int year = 2023;
+
+        // load survey sample
+        List<SampleIndividual> sampleIndividuals;
+        try {
+            String path = Parameters.getInputDirectory() + "lifetime_incomes" + File.separator + "/sample/" + year + ".csv";
+            FileReader fileReader = new FileReader(path);
+            sampleIndividuals = new CsvToBeanBuilder(fileReader).withType(SampleIndividual.class).build().parse();
+        } catch (IOException e) {
+            e.printStackTrace();
+            throw new RuntimeException("Problem reading initialisation start sample for analysis");
+        } catch (Throwable e) {
+            e.printStackTrace();
+            throw e;
+        }
+        long seedHere = seed;
+        for (SampleIndividual individual : sampleIndividuals) {
+
+            seedHere += 1;
+            individual.setGender(individual.getMale() == 1 ? Gender.Male : Gender.Female);
+            individual.setGenerator(seedHere);
+        }
+
+        // match templates to sample popualtion
+        // loop through each age in order
+        for (int age = 0; age <= capAge; age++) {
+
+            // sort template individuals by norm income at current age
+            int ageHere = age;
+            templateIndividuals.sort(Comparator.comparingDouble(individual -> individual.getNormIncome(ageHere).getZValue()));
+            final double[] sortedZ = templateIndividuals.stream().mapToDouble(individual -> individual.getNormIncome(ageHere).getZValue()).toArray();
+            boolean agePlus = (age>=capAge);
+
+            // loop through sample
+            sampleIndividuals.parallelStream().forEach(individual -> {
+                //for (Person person : personSet) {
+
+                individual.matchLifetimeIncome(ageHere, agePlus, sortedZ, templateIndividuals);
+                //}
+            });
+        }
+
+        // identify end age of template population
+        int endAge = templateIndividuals.getFirst().getNormIncomes().size() - 1;
+
+        // write matched income profiles to csv
+        if (writeToCSV) {
+
+            List<ImputedIncome> incomes = new ArrayList<>();
+            for (SampleIndividual individual : sampleIndividuals) {
+
+                individual.projectAgeAtDeath();
+                for (int age = 0; age <= endAge; age++) {
+
+                    ImputedIncome income = new ImputedIncome(individual, age);
                     incomes.add(income);
                 }
             }

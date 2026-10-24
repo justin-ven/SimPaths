@@ -281,7 +281,8 @@ public class SimPathsModel extends AbstractSimulationManager implements EventLis
     private boolean enableIntertemporalOptimisations = false;
 
     private boolean lifetimeIncomeImpute = true;      // request to generate new set of lifetime incomes
-    private Integer lifetimeIncomeEndAge = 80;
+    private Integer lifetimeIncomeCapAge = 80;
+    private Integer lifetimeIncomeEndAge = 120;
     private Integer lifetimeIncomeCohortSize = 500000;
     private boolean lifetimeIncomeWriteToCSV = true;
     private long lifetimeIncomeRandomSeed = 505;
@@ -399,8 +400,11 @@ public class SimPathsModel extends AbstractSimulationManager implements EventLis
                 saveImperfectTaxDBMatches, timeTrendStopsIn, startYear, endYear, interestRateInnov,
                 disposableIncomeFromLabourInnov, flagSuppressChildcareCosts, flagSuppressSocialCareCosts, lifetimeIncomeImpute);
         if (lifetimeIncomeImpute) {
-            ManagerLifetimeIncomes.generateNormalisedProfiles(log, lifetimeIncomeEndAge, lifetimeIncomeCohortSize, lifetimeIncomeTemplates,
+            ManagerLifetimeIncomes.generateNormalisedProfiles(log, lifetimeIncomeCapAge, lifetimeIncomeEndAge, lifetimeIncomeCohortSize, lifetimeIncomeTemplates,
                     lifetimeIncomeWriteToCSV, lifetimeIncomeRandomSeed, outputPath);
+            boolean projectSample = true;
+            if (projectSample)
+                ManagerLifetimeIncomes.imputeProfiles2(log, lifetimeIncomeCapAge, lifetimeIncomeRandomSeed, lifetimeIncomeTemplates, lifetimeIncomeWriteToCSV, outputPath);
         }
         if (enableIntertemporalOptimisations) {
 

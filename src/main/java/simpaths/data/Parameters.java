@@ -2407,12 +2407,13 @@ public class Parameters {
     public static Double getEquivalisedIncome(Gender demSex, int age, int year) {
 
         Double val = null;
-        if (year<=equivalisedIncomeMaxYear && year>=equivalisedIncomeMinYear && age<=equivalisedIncomeMaxAge) {
+        int ageHere = Math.min(age, equivalisedIncomeMaxAge);
+        if (year<=equivalisedIncomeMaxYear && year>=equivalisedIncomeMinYear) {
             // obtain value from observed matrix
 
-            Number nn = ((Number) equivalisedIncomeByGenderAgeYear.getValue(demSex.toString(), age, year));
+            Number nn = ((Number) equivalisedIncomeByGenderAgeYear.getValue(demSex.toString(), ageHere, year));
             if (nn==null) {
-                throw new IllegalAccessError("ERROR - problem evaluating mean equivalised income for year: " + year + ", age: " + age + " and demSex " + demSex.toString());
+                throw new IllegalAccessError("ERROR - problem evaluating mean equivalised income for year: " + year + ", age: " + ageHere + " and demSex " + demSex.toString());
             }
             val = nn.doubleValue();
         }

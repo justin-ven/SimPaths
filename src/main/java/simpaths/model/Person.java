@@ -25,6 +25,7 @@ import simpaths.model.annotations.UpdateManager;
 import simpaths.model.decisions.Axis;
 import simpaths.model.decisions.DecisionParams;
 import simpaths.model.enums.*;
+import simpaths.model.lifetime_incomes.RegressionProxy;
 import simpaths.model.lifetime_incomes.TemplateIndividual;
 import simpaths.model.person.PrivatePension;
 
@@ -5266,12 +5267,11 @@ public class Person implements EventListener, IDoubleSource, IIntSource, Weight,
         if (matchHere) {
 
             // identify normalised income target
-            double dispIncomePerYear = benefitUnit.getYDispMonth() * 12.0;
-            if (dispIncomePerYear > 0.0) {
+            double eqIncomePerYear = benefitUnit.getHousehold().getEquivalisedDisposableIncomeYearly();
+            if (eqIncomePerYear > 0.0) {
 
                 double gmEqDispIncomePerYear = getGMEquivalisedIncome(demAge, getYear());
-                double equivScale = benefitUnit.getEquivalisedWeight();
-                double zTarget = Math.log(dispIncomePerYear / equivScale / gmEqDispIncomePerYear);
+                double zTarget = Math.log(eqIncomePerYear / gmEqDispIncomePerYear);
                 int ii = Arrays.binarySearch(sortedZ, zTarget);
                 if (ii >= 0) {
                     // exact match found
@@ -5306,16 +5306,16 @@ public class Person implements EventListener, IDoubleSource, IIntSource, Weight,
 
     private double getGMEquivalisedIncome(int age, int year) {
 
-
         Double val = Parameters.getEquivalisedIncome(demMaleFlag, age, year);
         if (!Parameters.isFinite(val)) {
             // outside observed range, use regression model
 
+            RegressionProxy proxy = new RegressionProxy(age, year);
             if (demMaleFlag.toBoolean()) {
-                val = Math.exp(Parameters.getRegLifetimeIncome1a().getScore(this, Person.Variables.class));
+                val = Math.exp(Parameters.getRegLifetimeIncome1a().getScore(proxy, RegressionProxy.Variables.class));
             }
             else {
-                val = Math.exp(Parameters.getRegLifetimeIncome1b().getScore(this, Person.Variables.class));
+                val = Math.exp(Parameters.getRegLifetimeIncome1b().getScore(proxy, RegressionProxy.Variables.class));
             }
         }
         return val;
