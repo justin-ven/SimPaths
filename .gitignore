@@ -183,3 +183,10 @@ input/lifetime_incomes/sample/2020.csv
 input/lifetime_incomes/sample/2021.csv
 input/lifetime_incomes/sample/2022.csv
 input/lifetime_incomes/sample/2023.csv
+
+# Documentation build and browser-check output
+/site/
+/documentation/visual-tests/node_modules/
+/documentation/visual-tests/test-results/
+/documentation/visual-tests/playwright-report/
+__pycache__/
