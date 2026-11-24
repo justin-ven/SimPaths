@@ -181,6 +181,7 @@ public class ManagerLifetimeIncomes {
     }
 
     public static void imputeProfiles2(Logger log, Integer capAge, long seed, List<TemplateIndividual> templateIndividuals, boolean writeToCSV, String outputDir) {
+        // imputes incomes based only on Creedy (1985) model of income dynamics
 
         log.info("Imputing lifetime income profiles for sample");
         System.out.println("Imputing lifetime income profiles for sample");
@@ -209,7 +210,7 @@ public class ManagerLifetimeIncomes {
             individual.setGenerator(seedHere);
         }
 
-        // match templates to sample popualtion
+        // match templates to sample population
         // loop through each age in order
         for (int age = 0; age <= capAge; age++) {
 
